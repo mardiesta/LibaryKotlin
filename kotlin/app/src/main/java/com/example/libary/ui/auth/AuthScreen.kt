@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -24,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -42,16 +44,24 @@ import com.example.libary.data.UserDto
 import kotlinx.coroutines.launch
 
 @Composable
-fun AuthScreen(repository: LibraryRepository, onAuthenticated: (UserDto) -> Unit) {
+fun AuthScreen(
+    repository: LibraryRepository,
+    onAuthenticated: (UserDto) -> Unit,
+    notice: String? = null,
+) {
     val viewModel: AuthViewModel = viewModel(factory = viewModelFactory {
         initializer { AuthViewModel(repository) }
     })
+    LaunchedEffect(notice) {
+        if (!notice.isNullOrBlank()) viewModel.error = notice
+    }
     val scroll = rememberScrollState()
     Column(
         Modifier
             .fillMaxSize()
             .imePadding()
             .verticalScroll(scroll)
+            .statusBarsPadding()
             .padding(horizontal = 24.dp, vertical = 32.dp),
     ) {
         Text("Библиотека", style = MaterialTheme.typography.headlineMedium)

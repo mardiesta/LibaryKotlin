@@ -1,6 +1,9 @@
 package com.example.libary.data
 
 import android.content.Context
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
@@ -17,11 +20,15 @@ import java.util.concurrent.TimeUnit
 
 class UnauthorizedException(message: String) : Exception(message)
 
+data class SessionRejection(val token: String, val message: String)
+
 class LibraryRepository private constructor(
     private val api: LibraryApi,
     private val tokenStore: TokenStore,
     private val json: Json,
 ) {
+    private val invalidations = Channel<SessionRejection>(capacity = Channel.CONFLATED)
+    val sessionInvalid: Flow<SessionRejection> = invalidations.receiveAsFlow()
     suspend fun token(): String? = tokenStore.read()
 
     suspend fun logout() {
@@ -77,7 +84,12 @@ class LibraryRepository private constructor(
 
     private fun httpFailure(code: Int, raw: String): Exception {
         val message = detail(raw) ?: "Не удалось выполнить запрос"
-        return if (code == 401) UnauthorizedException(message) else IllegalStateException(message)
+        if (code != 401) return IllegalStateException(message)
+        if (message != "Неверный email или пароль") {
+            val token = runBlocking { tokenStore.read() }.orEmpty()
+            if (token.isNotEmpty()) invalidations.trySend(SessionRejection(token, message))
+        }
+        return UnauthorizedException(message)
     }
 
     private fun detail(raw: String): String? {

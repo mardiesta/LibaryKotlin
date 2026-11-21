@@ -70,7 +70,7 @@ fun LibraryRoot(repository: LibraryRepository) {
         when (val state = session.state) {
             SessionState.Checking -> LoadingPane()
             is SessionState.Offline -> ErrorPane(state.message, session::restore)
-            SessionState.LoggedOut -> AuthScreen(repository, session::onAuthenticated)
+            is SessionState.LoggedOut -> AuthScreen(repository, session::onAuthenticated, state.notice)
             is SessionState.LoggedIn -> ReaderApp(repository, session::logout)
         }
     }
@@ -134,7 +134,7 @@ private fun ReaderApp(repository: LibraryRepository, onLogout: () -> Unit) {
 
 sealed interface SessionState {
     data object Checking : SessionState
-    data object LoggedOut : SessionState
+    data class LoggedOut(val notice: String? = null) : SessionState
     data class LoggedIn(val user: UserDto) : SessionState
     data class Offline(val message: String) : SessionState
 }
@@ -144,6 +144,13 @@ class SessionViewModel(private val repository: LibraryRepository) : ViewModel() 
         private set
 
     init {
+        viewModelScope.launch {
+            repository.sessionInvalid.collect { rejection ->
+                if (repository.token() != rejection.token) return@collect
+                repository.logout()
+                state = SessionState.LoggedOut(sessionNotice(rejection.message))
+            }
+        }
         restore()
     }
 
@@ -151,7 +158,7 @@ class SessionViewModel(private val repository: LibraryRepository) : ViewModel() 
         viewModelScope.launch {
             state = SessionState.Checking
             if (repository.token().isNullOrBlank()) {
-                state = SessionState.LoggedOut
+                state = SessionState.LoggedOut()
                 return@launch
             }
             repository.me().fold(
@@ -160,7 +167,7 @@ class SessionViewModel(private val repository: LibraryRepository) : ViewModel() 
                     when (error) {
                         is UnauthorizedException -> {
                             repository.logout()
-                            state = SessionState.LoggedOut
+                            state = SessionState.LoggedOut(sessionNotice(error.message))
                         }
                         is IOException -> state = SessionState.Offline(error.message ?: "Нет соединения с сервером")
                         else -> state = SessionState.Offline(error.message ?: "Не удалось выполнить запрос")
@@ -177,7 +184,15 @@ class SessionViewModel(private val repository: LibraryRepository) : ViewModel() 
     fun logout() {
         viewModelScope.launch {
             repository.logout()
-            state = SessionState.LoggedOut
+            state = SessionState.LoggedOut()
+        }
+    }
+
+    private fun sessionNotice(message: String?): String {
+        return if (message.isNullOrBlank() || message == "Сессия недействительна" || message == "Требуется вход") {
+            "Сессия истекла. Войдите снова."
+        } else {
+            message
         }
     }
 }

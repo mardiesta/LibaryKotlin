@@ -44,7 +44,6 @@ import com.example.libary.ui.loans.MyBooksScreen
 import com.example.libary.ui.librarian.LibrarianScreen
 import com.example.libary.ui.profile.ProfileScreen
 import kotlinx.coroutines.launch
-import java.io.IOException
 
 private object Routes {
     const val Catalog = "catalog"
@@ -174,8 +173,7 @@ class SessionViewModel(private val repository: LibraryRepository) : ViewModel() 
                             repository.logout()
                             state = SessionState.LoggedOut(sessionNotice(error.message))
                         }
-                        is IOException -> state = SessionState.Offline(error.message ?: "Нет соединения с сервером")
-                        else -> state = SessionState.Offline(error.message ?: "Не удалось выполнить запрос")
+                        else -> state = SessionState.Offline(error.message ?: "Не удалось открыть локальные данные")
                     }
                 },
             )

@@ -67,7 +67,7 @@ class ProfileViewModel(private val repository: LibraryRepository) : ViewModel() 
             state = UiState.Loading
             state = repository.me().fold(
                 onSuccess = { UiState.Ready(it) },
-                onFailure = { UiState.Error(it.message ?: "Нет соединения с сервером") },
+                onFailure = { UiState.Error(it.message ?: "Не удалось загрузить данные") },
             )
         }
     }

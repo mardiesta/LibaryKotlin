@@ -206,10 +206,10 @@ class BookViewModel(
 
     private suspend fun fetch(): UiState<BookDetails> {
         val book = repository.book(bookId).getOrElse {
-            return UiState.Error(it.message ?: "Нет соединения с сервером")
+            return UiState.Error(it.message ?: "Не удалось загрузить данные")
         }
         val loans = repository.loans("active").getOrElse {
-            return UiState.Error(it.message ?: "Нет соединения с сервером")
+            return UiState.Error(it.message ?: "Не удалось загрузить данные")
         }
         val own = loans.firstOrNull { it.bookId == bookId && it.status in setOf("reserved", "issued") }
         return UiState.Ready(BookDetails(book, own))

@@ -92,7 +92,7 @@ class MyBooksViewModel(private val repository: LibraryRepository) : ViewModel() 
             refreshing = false
             result.fold(
                 onSuccess = { loans -> actionError = null; state = UiState.Ready(MyBooks(loans.filter { it.status == "reserved" }, loans.filter { it.status == "issued" })) },
-                onFailure = { if (state is UiState.Ready) actionError = it.message ?: "Не удалось обновить список" else state = UiState.Error(it.message ?: "Нет соединения с сервером") },
+                onFailure = { if (state is UiState.Ready) actionError = it.message ?: "Не удалось обновить список" else state = UiState.Error(it.message ?: "Не удалось загрузить данные") },
             )
         }
     }

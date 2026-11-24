@@ -160,7 +160,7 @@ class CatalogViewModel(private val repository: LibraryRepository) : ViewModel() 
             refreshing = false
             state = result.fold(
                 onSuccess = { UiState.Ready(it) },
-                onFailure = { UiState.Error(it.message ?: "Нет соединения с сервером") },
+                onFailure = { UiState.Error(it.message ?: "Не удалось загрузить данные") },
             )
         }
     }

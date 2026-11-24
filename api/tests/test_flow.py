@@ -96,3 +96,22 @@ def test_access_rules(client):
         json={"full_name": "Вера", "email": "vera@example.com", "password": "secret1"},
     )
     assert duplicate.status_code == 409
+
+
+def test_demo_role_entry_and_shared_reader(client):
+    reader = client.post('/auth/demo', json={'role': 'reader'})
+    staff = client.post('/auth/demo', json={'role': 'librarian'})
+    assert reader.status_code == staff.status_code == 200
+    assert reader.json()['user']['role'] == 'reader'
+    assert staff.json()['user']['role'] == 'librarian'
+    reader_headers = {'Authorization': f"Bearer {reader.json()['access_token']}"}
+    staff_headers = {'Authorization': f"Bearer {staff.json()['access_token']}"}
+    assert client.get('/librarian/loans', headers=reader_headers).status_code == 403
+    assert client.get('/librarian/loans', headers=staff_headers).status_code == 200
+    book = book_by_title(client, reader_headers, 'Мастер и Маргарита')
+    assert client.post(f"/books/{book['id']}/reservations", headers=reader_headers).status_code == 201
+    again = client.post('/auth/demo', json={'role': 'reader'}).json()
+    assert again['user']['id'] == reader.json()['user']['id']
+    again_headers = {'Authorization': f"Bearer {again['access_token']}"}
+    assert len(client.get('/me/loans', params={'scope': 'active'}, headers=again_headers).json()) == 1
+    assert client.post('/auth/demo', json={'role': 'admin'}).status_code == 422

@@ -35,6 +35,7 @@ import com.example.libary.data.LoanDto
 import com.example.libary.ui.common.EmptyPane
 import com.example.libary.ui.common.ErrorPane
 import com.example.libary.ui.common.LoadingPane
+import com.example.libary.ui.common.RefreshOnResume
 import com.example.libary.ui.common.UiState
 import com.example.libary.ui.common.formatIsoDate
 import kotlinx.coroutines.launch
@@ -45,6 +46,7 @@ fun HistoryScreen(repository: LibraryRepository) {
     val viewModel: HistoryViewModel = viewModel(factory = viewModelFactory {
         initializer { HistoryViewModel(repository) }
     })
+    RefreshOnResume(viewModel::load)
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("История") },
@@ -85,10 +87,6 @@ class HistoryViewModel(private val repository: LibraryRepository) : ViewModel() 
     var state by mutableStateOf<UiState<List<LoanDto>>>(UiState.Loading)
     var refreshing by mutableStateOf(false)
     private var request = 0
-
-    init {
-        load()
-    }
 
     fun load() {
         val id = ++request

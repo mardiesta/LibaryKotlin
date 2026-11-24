@@ -37,13 +37,17 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.libary.data.BookDto
 import com.example.libary.data.LibraryRepository
+import com.example.libary.data.LoanDto
 import com.example.libary.ui.common.EmptyPane
 import com.example.libary.ui.common.ErrorPane
 import com.example.libary.ui.common.LoadingPane
+import com.example.libary.ui.common.RefreshOnResume
 import com.example.libary.ui.common.UiState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+data class CatalogData(val books: List<BookDto>, val loans: List<LoanDto>)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +55,7 @@ fun CatalogScreen(repository: LibraryRepository, onOpenBook: (Int) -> Unit) {
     val viewModel: CatalogViewModel = viewModel(factory = viewModelFactory {
         initializer { CatalogViewModel(repository) }
     })
+    RefreshOnResume(viewModel::load)
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("Каталог") },
@@ -80,14 +85,14 @@ fun CatalogScreen(repository: LibraryRepository, onOpenBook: (Int) -> Unit) {
             UiState.Loading -> LoadingPane()
             is UiState.Error -> ErrorPane(state.message, viewModel::load)
             is UiState.Ready -> {
-                if (state.value.isEmpty()) {
+                if (state.value.books.isEmpty()) {
                     EmptyPane(
                         if (viewModel.query.isBlank()) "В каталоге пока нет книг" else "Ничего не найдено",
                     )
                 } else {
                     LazyColumn(contentPadding = PaddingValues(16.dp)) {
-                        items(state.value, key = { it.id }) { book ->
-                            BookRow(book, onClick = { onOpenBook(book.id) })
+                        items(state.value.books, key = { it.id }) { book ->
+                            BookRow(book, state.value.loans.firstOrNull { it.bookId == book.id }?.status, onClick = { onOpenBook(book.id) })
                             Spacer(Modifier.height(10.dp))
                         }
                     }
@@ -98,13 +103,17 @@ fun CatalogScreen(repository: LibraryRepository, onOpenBook: (Int) -> Unit) {
 }
 
 @Composable
-private fun BookRow(book: BookDto, onClick: () -> Unit) {
+private fun BookRow(book: BookDto, ownStatus: String?, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(book.title, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             Text(book.author, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
+            if (ownStatus == "reserved" || ownStatus == "issued") {
+                Text(if (ownStatus == "reserved") "Забронирована вами" else "У вас на руках", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(4.dp))
+            }
             Text(
                 text = if (book.availableCopies > 0) {
                     "Свободных экземпляров: ${book.availableCopies}"
@@ -124,14 +133,10 @@ private fun BookRow(book: BookDto, onClick: () -> Unit) {
 
 class CatalogViewModel(private val repository: LibraryRepository) : ViewModel() {
     var query by mutableStateOf("")
-    var state by mutableStateOf<UiState<List<BookDto>>>(UiState.Loading)
+    var state by mutableStateOf<UiState<CatalogData>>(UiState.Loading)
     var refreshing by mutableStateOf(false)
     private var request = 0
     private var searchJob: Job? = null
-
-    init {
-        load()
-    }
 
     fun onQueryChange(value: String) {
         query = value
@@ -147,7 +152,10 @@ class CatalogViewModel(private val repository: LibraryRepository) : ViewModel() 
         val showFullScreen = state !is UiState.Ready
         viewModelScope.launch {
             if (showFullScreen) state = UiState.Loading else refreshing = true
-            val result = repository.books(query)
+            val result = repository.books(query).fold(
+                onSuccess = { books -> repository.loans("active").map { loans -> CatalogData(books, loans) } },
+                onFailure = { Result.failure(it) },
+            )
             if (id != request) return@launch
             refreshing = false
             state = result.fold(

@@ -35,17 +35,32 @@ class LibraryRepository private constructor(
         tokenStore.clear()
     }
 
+    suspend fun demoLogin(role: String): Result<UserDto> {
+        return call { api.demoLogin(DemoLoginRequest(role)) }
+            .onSuccess { tokenStore.write(it.accessToken) }
+            .map { it.user }
+    }
+
     suspend fun register(fullName: String, email: String, password: String): Result<UserDto> {
         return call { api.register(RegisterRequest(fullName, email, password)) }
             .onSuccess { tokenStore.write(it.accessToken) }
             .map { it.user }
     }
 
-    suspend fun login(email: String, password: String): Result<UserDto> {
+    suspend fun login(email: String, password: String, role: String): Result<UserDto> {
         return call { api.login(LoginRequest(email, password)) }
-            .onSuccess { tokenStore.write(it.accessToken) }
-            .map { it.user }
+            .mapCatching { response ->
+                require(response.user.role == role) { "Роль аккаунта не совпадает с выбранной" }
+                tokenStore.write(response.accessToken)
+                response.user
+            }
     }
+
+    suspend fun librarianLoans(): Result<List<LoanDto>> = call { api.librarianLoans() }
+
+    suspend fun issue(id: Int): Result<LoanDto> = call { api.issue(id) }
+
+    suspend fun acceptReturn(id: Int): Result<LoanDto> = call { api.acceptReturn(id) }
 
     suspend fun me(): Result<UserDto> = call { api.me() }
 

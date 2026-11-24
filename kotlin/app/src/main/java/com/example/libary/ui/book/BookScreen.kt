@@ -36,6 +36,7 @@ import com.example.libary.data.LibraryRepository
 import com.example.libary.data.LoanDto
 import com.example.libary.ui.common.ErrorPane
 import com.example.libary.ui.common.LoadingPane
+import com.example.libary.ui.common.RefreshOnResume
 import com.example.libary.ui.common.UiState
 import com.example.libary.ui.common.formatIsoDate
 import kotlinx.coroutines.launch
@@ -49,6 +50,7 @@ fun BookScreen(repository: LibraryRepository, bookId: Int, onBack: () -> Unit) {
         key = "book-$bookId",
         factory = viewModelFactory { initializer { BookViewModel(repository, bookId) } },
     )
+    RefreshOnResume(viewModel::load)
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("Книга") },
@@ -100,6 +102,9 @@ private fun BookContent(details: BookDetails, viewModel: BookViewModel) {
                 )
             }
             loan?.status == "reserved" -> {
+                Text("Забронирована", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                Text("Заберите книгу в библиотеке", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = viewModel::cancel,
                     enabled = !viewModel.submitting,
@@ -151,10 +156,6 @@ class BookViewModel(
     var actionError by mutableStateOf<String?>(null)
     var notice by mutableStateOf<String?>(null)
     private var request = 0
-
-    init {
-        load()
-    }
 
     fun load() {
         val id = ++request

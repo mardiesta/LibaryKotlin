@@ -1,10 +1,12 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User
-from app.schemas import LoginIn, RegisterIn, TokenOut, UserOut
+from app.schemas import DemoLoginIn, LoginIn, RegisterIn, TokenOut, UserOut
 from app.security import create_token, get_current_user, hash_password, normalize_email, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -16,6 +18,25 @@ def user_out(user: User) -> UserOut:
 
 def token_out(user: User) -> TokenOut:
     return TokenOut(access_token=create_token(user), user=user_out(user))
+
+
+@router.post("/demo", response_model=TokenOut)
+def demo_login(body: DemoLoginIn, db: Session = Depends(get_db)) -> TokenOut:
+    email = "demo-reader@library.local" if body.role == "reader" else "librarian@library.local"
+    user = db.scalar(select(User).where(User.email == email))
+    if user is None:
+        user = User(
+            full_name="Читатель" if body.role == "reader" else "Библиотекарь",
+            email=email,
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            role=body.role,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    if user.role != body.role:
+        raise HTTPException(status_code=409, detail="Учётная запись демо занята другой ролью")
+    return token_out(user)
 
 
 @router.post("/register", response_model=TokenOut, status_code=201)

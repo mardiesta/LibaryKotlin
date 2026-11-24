@@ -25,6 +25,9 @@ data class RegisterRequest(
 )
 
 @Serializable
+data class DemoLoginRequest(val role: String)
+
+@Serializable
 data class LoginRequest(
     val email: String,
     val password: String,
@@ -54,4 +57,6 @@ data class LoanDto(
     @SerialName("issued_at") val issuedAt: String? = null,
     @SerialName("due_date") val dueDate: String? = null,
     @SerialName("returned_at") val returnedAt: String? = null,
+    @SerialName("reader_name") val readerName: String = "",
+    @SerialName("reader_email") val readerEmail: String = "",
 )

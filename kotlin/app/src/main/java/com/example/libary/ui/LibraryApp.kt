@@ -41,6 +41,7 @@ import com.example.libary.ui.common.ErrorPane
 import com.example.libary.ui.common.LoadingPane
 import com.example.libary.ui.history.HistoryScreen
 import com.example.libary.ui.loans.MyBooksScreen
+import com.example.libary.ui.librarian.LibrarianScreen
 import com.example.libary.ui.profile.ProfileScreen
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -56,7 +57,7 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 
 private val tabs = listOf(
     Tab(Routes.Catalog, "Каталог", Icons.AutoMirrored.Filled.MenuBook),
-    Tab(Routes.MyBooks, "Мои книги", Icons.Filled.Bookmark),
+    Tab(Routes.MyBooks, "Брони и книги", Icons.Filled.Bookmark),
     Tab(Routes.History, "История", Icons.Filled.History),
     Tab(Routes.Profile, "Профиль", Icons.Filled.Person),
 )
@@ -71,7 +72,11 @@ fun LibraryRoot(repository: LibraryRepository) {
             SessionState.Checking -> LoadingPane()
             is SessionState.Offline -> ErrorPane(state.message, session::restore)
             is SessionState.LoggedOut -> AuthScreen(repository, session::onAuthenticated, state.notice)
-            is SessionState.LoggedIn -> ReaderApp(repository, session::logout)
+            is SessionState.LoggedIn -> if (state.user.role == "librarian") {
+                LibrarianScreen(repository, session::logout)
+            } else {
+                ReaderApp(repository, session::logout)
+            }
         }
     }
 }
